@@ -22,7 +22,7 @@ vad:
 stt:
   # backend: moonshine_onnx | whisper_cpp | mlx_whisper
   backend: moonshine_onnx
-  model: moonshine/small  # tiny | small | medium
+  model: moonshine/base  # tiny | base (small/medium not yet in useful-moonshine-onnx)
   # auto | cuda | cpu | coreml | mlx
   device: auto
   language: en
