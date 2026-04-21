@@ -15,7 +15,12 @@ TARGET = os.path.expanduser("~/.localflow/models")
 
 MODELS: list[dict[str, str]] = [
     {
-        "purpose": "polish LLM",
+        "purpose": "polish LLM (primary, fast)",
+        "repo_id": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+        "filename": "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+    },
+    {
+        "purpose": "polish LLM (fallback, higher quality)",
         "repo_id": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
         "filename": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     },

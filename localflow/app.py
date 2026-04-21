@@ -15,6 +15,7 @@ from localflow.core import config as cfg
 from localflow.core.capture import Capture
 from localflow.core.hotkey import HotkeyListener, Mode
 from localflow.core.inject import linux_x11
+from localflow.core.polish.dictionary import pre_polish
 from localflow.core.stt.moonshine_onnx import MoonshineSTT
 
 log = logging.getLogger("localflow")
@@ -57,31 +58,37 @@ def _run() -> int:
         raw = stt.transcribe(audio, sample_rate=capture.sample_rate)
         t_stt = time.monotonic()
 
-        final = raw
-        if polish and raw:
+        pre = pre_polish(raw) if raw else raw
+        t_pre = time.monotonic()
+
+        final = pre
+        if polish and pre:
             try:
-                final = polish.polish(raw)
+                final = polish.polish(pre)
             except Exception as e:
-                log.warning("polish failed, pasting raw transcript: %s", e)
-                final = raw
+                log.warning("polish failed, pasting pre-polished transcript: %s", e)
+                final = pre
         t_pol = time.monotonic()
 
         linux_x11.paste(final, restore_after_ms=restore_ms)
         t_paste = time.monotonic()
 
         log.info(
-            "pipeline: %d samples | capture %.0f ms | stt %.0f ms | polish %.0f ms | paste %.0f ms",
+            "pipeline: %d samples | cap %.0f | stt %.0f | pre %.0f | llm %.0f | paste %.0f (ms)",
             len(audio),
             (t_cap - t0) * 1000,
             (t_stt - t_cap) * 1000,
-            (t_pol - t_stt) * 1000,
+            (t_pre - t_stt) * 1000,
+            (t_pol - t_pre) * 1000,
             (t_paste - t_pol) * 1000,
         )
-        if polish and raw != final:
-            log.info("  raw   : %r", raw)
-            log.info("  polish: %r", final)
+        if raw != final:
+            log.info("  raw : %r", raw)
+            if pre != raw and pre != final:
+                log.info("  pre : %r", pre)
+            log.info("  out : %r", final)
         else:
-            log.info("  text  : %r", final)
+            log.info("  text: %r", final)
 
     listener = HotkeyListener(
         key=c["hotkey"]["key"],
