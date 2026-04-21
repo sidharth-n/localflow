@@ -43,6 +43,7 @@ def _run() -> int:
             system_prompt=c["polish"]["system_prompt"],
             max_tokens=c["polish"]["max_tokens"],
             temperature=c["polish"]["temperature"],
+            n_gpu_layers=c["polish"].get("n_gpu_layers", 0),
         )
 
     restore_ms = c["inject"]["restore_clipboard_after_ms"]

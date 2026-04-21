@@ -36,6 +36,8 @@ polish:
   # tokens to generate max
   max_tokens: 512
   temperature: 0.2
+  # llama.cpp GPU offload: -1 = all layers on GPU, 0 = CPU only
+  n_gpu_layers: -1
   system_prompt: |
     You clean up raw speech-to-text dictation. Rewrite what the speaker INTENDED,
     not the literal mis-hearing the STT produced.
