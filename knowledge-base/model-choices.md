@@ -19,6 +19,8 @@ Exact models, per machine, per role, with the reasoning. Update when a choice ch
 - English-only — matches v1 scope.
 - Upgrade path: Moonshine Medium if Small proves inaccurate; Parakeet-unified if we want best-in-class English WER.
 
+> **Status 2026-04-21 (M0.4):** Using `moonshine/base` — the `useful-moonshine-onnx` wheel (v20251121) only ships `tiny` and `base`. `small`/`medium` weights exist in the Moonshine repo but aren't packaged yet. Measured latency on Ryzen 9 5900HX CPU: 288 ms cold / 340 ms warm on ~10 s of audio (→ ~33× realtime; ~100 ms per typical 3 s phrase). Accuracy is usable but mis-hears domain terms ("LLM" → "lump") — polish LLM (M2) is the right fix, not a bigger STT.
+
 ### Mac: Moonshine v2 Medium
 - 258 ms streaming latency, 245 M params, matches Whisper Large v3 accuracy.
 - 32 GB unified means size is free.

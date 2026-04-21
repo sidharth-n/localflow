@@ -45,3 +45,6 @@ models/
 # Env
 .env
 .env.local
+
+# Claude Code local state (commands/ and agents/ are intentionally tracked)
+.claude/scheduled_tasks.lock
