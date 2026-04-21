@@ -1,8 +1,11 @@
 # localflow default config. Copy to ~/.config/localflow/config.yaml to override.
 
 hotkey:
-  # pynput key spec. Linux: <ctrl_r>, <alt_r>. Mac: <cmd>, <alt_r> (Right Option).
-  key: "<ctrl_r>"
+  # pynput key spec. Right Alt is the cleanest default — single key, rarely
+  # bound by apps, and the Fn key (macOS-style) isn't catchable on Linux
+  # because it's handled in firmware, not the OS.
+  # Linux alternatives: <alt_r>, <caps_lock>, <f9>. Mac: <cmd>, <alt_r>.
+  key: "<alt_r>"
   # "push_to_talk" (hold) or "toggle" (tap on/off).
   mode: "push_to_talk"
 
