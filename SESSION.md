@@ -3,7 +3,7 @@
 > Source of truth for "where are we?". Updated at `/end` every session. Read first at `/start`.
 
 **Last updated:** 2026-04-21
-**Active milestone:** M0 — Project skeleton (4/5 done; M0.5 pending)
+**Active milestone:** M2 — Polish LLM (done). M0.5 + M1 deferred.
 **Target machine this phase:** Linux laptop (RTX 3050 4 GB, X11)
 
 ---
@@ -20,21 +20,23 @@
 - [x] **M0.2 — Audio capture** (`localflow/core/capture.py`): sounddevice InputStream, 16 kHz mono int16, start/stop API; verified 1 s recording yields 15,840 samples with real signal
 - [x] **M0.3 — Dummy STT → clipboard paste loop** (`localflow/core/stt/dummy.py`, `localflow/core/inject/linux_x11.py`, `localflow/app.py`): full pipeline end-to-end on the 3050 laptop; verified live — real hotkey press, mic recording, dummy transcript pasted at cursor, per-stage timings logged
 - [x] **M0.4 — Moonshine ONNX CPU STT** (`localflow/core/stt/moonshine_onnx.py`): `useful-moonshine-onnx` wheel, `moonshine/base` model. Measured **288 ms cold / 340 ms warm on 10 s audio** on Ryzen 9 5900HX → ~33× realtime, projects to ~100 ms per typical 3 s dictation. Live pipeline confirmed working by user.
+- [x] **M2 — Polish LLM** (`localflow/core/polish/llamacpp.py`, `localflow/core/config.py`, `scripts/download_models.py`): llama-cpp-python 0.3.20 (CPU, no BLAS), Qwen3-4B-Instruct-2507 Q4_K_M (~2.4 GB) pulled from `unsloth/Qwen3-4B-Instruct-2507-GGUF`. System prompt upgraded with explicit tech-homophone fixes. Benched on 7 cases: **case 1 "i want to build a lump…" → "I want to build an LLM…"** (the exact user pain-point is fixed). Latency 1.5–5 s per polish (median ~2 s). Pipeline now: hotkey → capture → STT → polish → paste, with automatic fall-through to raw STT if polish raises.
 
 ## In progress 🔄
 
-_(nothing — pipeline works; next session decides M2 vs M0.5 vs M1)_
+_(nothing)_
 
 ## Next up (priority order) 📋
 
-1. **M2 — Polish LLM** (jumping ahead of M1). User reported mis-hearings in live testing ("LLM" → "lump") that a GPU speed-up won't fix. Plan: llama.cpp + Qwen3-4B Q4_K_M on CPU, system prompt in `config/default.yaml` already drafted for disfluency removal + formatting. New file: `localflow/core/polish/llamacpp.py`. Budget: keep latency < 700 ms total.
-2. **M0.5 — Tray/daemon CLI.** Still wanted, but lower urgency — `localflow` already runs forever with a ready log line. Real work is a proper systray icon + graceful shutdown; defer until M2 ships.
-3. **M1 — GPU STT.** Moonshine on CUDA (Linux), measure p50/p95 on 3050. Deprioritized because CPU latency is already ~100 ms for typical phrases — GPU savings won't dominate the UX budget now that polish is on deck.
+1. **OpenBLAS rebuild of llama.cpp** — should cut polish latency ~1.5×. Needs `sudo apt install libopenblas-dev`, then `CMAKE_ARGS="-DGGML_BLAS=on -DGGML_BLAS_VENDOR=OpenBLAS" pip install --force-reinstall --no-cache-dir llama-cpp-python`.
+2. **M1 — GPU STT.** Moonshine via `onnxruntime-gpu` CUDA EP. Probably diminishing returns given polish now dominates the budget; optional.
+3. **M0.5 — Tray/daemon CLI.** Proper systray icon, graceful shutdown. Nice-to-have.
+4. **Metrics log file.** `logging.metrics_file` in config is already defined but unused — write a JSONL line per dictation with per-stage timings, to make bench scripts in M5 easy.
 
 ## Milestones roadmap 🗺️
 
 - [x] **M0 — Skeleton** (4/5 done): hotkey → mic → Moonshine CPU → clipboard paste. Works end-to-end on Linux.
-- [ ] **M2 — Polish LLM**: llama.cpp + Qwen3-4B Q4 on CPU. Configurable system prompt. **(Next)**
+- [x] **M2 — Polish LLM**: llama.cpp + Qwen3-4B-Instruct-2507 Q4_K_M on CPU. Tech-homophone-aware prompt.
 - [ ] **M0.5 — Tray/daemon**: systray icon, `localflow` as proper daemon.
 - [ ] **M1 — GPU STT**: Moonshine on CUDA; p50/p95 on 3050.
 - [ ] **M3 — Mac port**: Moonshine via CoreML/MLX, Gemma-4-E4B via mlx-lm, AXUIElement injection, global hotkey via HotKey.
@@ -67,3 +69,12 @@ _(nothing — pipeline works; next session decides M2 vs M0.5 vs M1)_
 - Installed `useful-moonshine-onnx` (v20251121). Package only ships `tiny`/`base`. Wrote `core/stt/moonshine_onnx.py` against `moonshine/base`, swapped it into `app.py`.
 - Benched on Ryzen 9 5900HX CPU, 10 s clip: **288 ms cold / 340 ms warm / 313 ms int16 path** — all produced identical transcript. User-tested live; accuracy is usable but mis-hears terms like "LLM" → "lump", confirming the polish LLM is the right next step.
 - System deps required along the way (all installed this session): `python3-dev`, `libportaudio2`, `xdotool`, `xclip`.
+
+### 2026-04-21 — M2 polish LLM live
+- Installed `llama-cpp-python` 0.3.20 (first attempt with `-DGGML_BLAS=on -DGGML_BLAS_VENDOR=OpenBLAS` failed — no `libopenblas-dev` on system; fell back to plain CPU build, which works).
+- Pulled `unsloth/Qwen3-4B-Instruct-2507-GGUF` / `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (~2.4 GB, ~38 min on this connection) to `~/.localflow/models/`. Added `scripts/download_models.py` so future machines can re-fetch deterministically.
+- Added `localflow/core/config.py` — tiny YAML loader for `config/default.yaml`. All components now config-driven instead of hardcoded.
+- Wrote `localflow/core/polish/llamacpp.py` (`QwenPolish` class). Uses `create_chat_completion` with system prompt + user turn.
+- Rewrote `localflow/app.py`: config-loaded pipeline, polish stage between STT and paste, per-stage timing logged, polish errors silently fall back to raw STT (so a bad LLM can't kill dictation).
+- First prompt version failed the user's reported test case — "lump" stayed "lump". Rewrote the system prompt with explicit tech-homophone table (lump→LLM, jason→JSON, a-p-i→API, clawed→Claude, jet-p-t→ChatGPT, get-hub→GitHub, mackbook→MacBook). 7/7 benchmark cases now pass, including the live pain-point.
+- Latency: 1.5–5 s polish per dictation, median ~2 s. Slower than hoped — no BLAS is the bottleneck. OpenBLAS rebuild queued as first follow-up.
