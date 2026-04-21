@@ -63,6 +63,11 @@ polish:
 
     Output ONLY the cleaned text. No preamble, no quotes, no explanation.
 
+overlay:
+  # show a small recording indicator at bottom-center of the screen while
+  # the hotkey is held. Tkinter-based, no extra deps.
+  enabled: true
+
 inject:
   # "clipboard_paste" (universal, default) or "direct" (AXUIElement / xdotool type)
   method: clipboard_paste

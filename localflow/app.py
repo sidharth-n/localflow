@@ -1,6 +1,7 @@
 """localflow CLI entry point.
 
-M2: hotkey → capture → Moonshine STT → polish LLM → clipboard paste.
+Pipeline: hotkey → capture → Moonshine STT → dictionary pre-polish →
+  (optional) LLM polish → clipboard paste, with live recording overlay.
 """
 from __future__ import annotations
 
@@ -46,16 +47,25 @@ def _run() -> int:
             n_gpu_layers=c["polish"].get("n_gpu_layers", 0),
         )
 
+    overlay = None
+    if c.get("overlay", {}).get("enabled", True):
+        from localflow.core.overlay import Overlay
+        overlay = Overlay()
+
     restore_ms = c["inject"]["restore_clipboard_after_ms"]
 
     def on_start() -> None:
         log.info("recording")
+        if overlay:
+            overlay.show_recording()
         capture.start()
 
     def on_stop() -> None:
         t0 = time.monotonic()
         audio = capture.stop()
         t_cap = time.monotonic()
+        if overlay:
+            overlay.show_processing()
         raw = stt.transcribe(audio, sample_rate=capture.sample_rate)
         t_stt = time.monotonic()
 
@@ -77,6 +87,9 @@ def _run() -> int:
 
         linux_x11.paste(final, restore_after_ms=restore_ms)
         t_paste = time.monotonic()
+
+        if overlay:
+            overlay.hide()
 
         log.info(
             "pipeline: %d samples | cap %.0f | stt %.0f | pre %.0f | llm %s | paste %.0f (ms)",
@@ -108,8 +121,13 @@ def _run() -> int:
         c["hotkey"]["key"],
     )
     try:
-        listener.join()
+        if overlay:
+            overlay.mainloop()
+        else:
+            listener.join()
     except KeyboardInterrupt:
+        pass
+    finally:
         listener.stop()
         log.info("bye")
     return 0
