@@ -1,0 +1,54 @@
+# localflow default config. Copy to ~/.config/localflow/config.yaml to override.
+
+hotkey:
+  # pynput key spec. Linux: <ctrl_r>, <alt_r>. Mac: <cmd>, <alt_r> (Right Option).
+  key: "<ctrl_r>"
+  # "push_to_talk" (hold) or "toggle" (tap on/off).
+  mode: "push_to_talk"
+
+audio:
+  sample_rate: 16000
+  channels: 1
+  # Bytes per audio chunk fed to VAD. 30 ms @ 16 kHz = 480 samples.
+  chunk_ms: 30
+
+vad:
+  enabled: true
+  # probability threshold to consider a chunk speech
+  threshold: 0.5
+  # trailing silence (ms) to wait before finalizing
+  silence_timeout_ms: 400
+
+stt:
+  # backend: moonshine_onnx | whisper_cpp | mlx_whisper
+  backend: moonshine_onnx
+  model: moonshine/small  # tiny | small | medium
+  # auto | cuda | cpu | coreml | mlx
+  device: auto
+  language: en
+
+polish:
+  # disable to paste raw transcript
+  enabled: true
+  # backend: llamacpp | mlx | none
+  backend: llamacpp
+  model_path: ~/.localflow/models/qwen3-4b-instruct.Q4_K_M.gguf
+  # tokens to generate max
+  max_tokens: 512
+  temperature: 0.2
+  system_prompt: |
+    You clean up dictated speech. Remove filler words (um, uh, like, you know).
+    Fix obvious transcription errors from context. Add punctuation and capitalization.
+    Keep the speaker's voice and intent. Do not rephrase, summarize, or add anything.
+    Output only the cleaned text. No preamble, no quotes, no commentary.
+
+inject:
+  # "clipboard_paste" (universal, default) or "direct" (AXUIElement / xdotool type)
+  method: clipboard_paste
+  # ms to wait before restoring the previous clipboard contents
+  restore_clipboard_after_ms: 500
+
+logging:
+  level: INFO
+  # write timing/latency metrics to this file. null = no file log.
+  metrics_file: ~/.localflow/metrics.jsonl

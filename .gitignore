@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Models & weights (too large for git)
+models/
+*.bin
+*.gguf
+*.onnx
+*.safetensors
+*.mlpackage/
+*.mlmodel
+*.mlmodelc/
+
+# User data
+~/.localflow/
+.localflow/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs & temp
+*.log
+.tmp/
+*.wav
+*.mp3
+
+# Env
+.env
+.env.local
