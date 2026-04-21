@@ -45,6 +45,14 @@ _FILLERS: list[str] = [
 ]
 
 
+def looks_clean(text: str) -> bool:
+    """Return True if the LLM polish step can be skipped — text already ends
+    with sentence punctuation, so the model wouldn't meaningfully change it."""
+    if not text:
+        return True
+    return text.rstrip().endswith((".", "!", "?"))
+
+
 def pre_polish(text: str) -> str:
     out = text
     for pattern, replacement in _HOMOPHONES.items():

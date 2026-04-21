@@ -32,7 +32,8 @@ After P1, if the result passes: no filler tokens left, ≤8 words, no low-confid
 ### Trial log (2026-04-21)
 
 - **LFM2.5-1.2B-Instruct Q4_K_M — REJECTED on quality, despite higher IFEval.** Downloaded and benched on our 7-case suite. Results: consistent rephrasing / meta-commentary bias that a "no preamble, no commentary" system prompt and a 4-shot in-context format demo couldn't suppress. Representative failures: `"hello world"` → `"Clearly, the speaker meant to say 'Hello world.'"`; `"um so like you know i was thinking..."` → `"Certainly, let's refine the speech for clarity. The speaker seems..."`; `"i want to build a lump..."` → `"Build a system that creates text..."` (even summarized-away the homophone the dictionary had already fixed). Latency 800–3000 ms — no speed win big enough to compensate. **Lesson: IFEval at the aggregate level doesn't predict "minimal-edit" fidelity on tasks below 2B params.** Worth retrying if Liquid ships a larger variant or a text-edit fine-tune.
-- **Qwen3-1.7B Q4_K_M** — being benched next as the `P3` candidate.
+- **Qwen3-1.7B Q4_K_M (base, `unsloth/Qwen3-1.7B-GGUF`) — REJECTED.** The base Qwen3-1.7B is the hybrid-thinking variant. Default benchmark was ~16 s per case because `<think>…</think>` tokens ate the budget. Adding `/no_think` to the system prompt cuts that to ~1.2 s median (vs Qwen3-4B's ~2 s) but output still carries an empty `<think></think>` prefix AND the model stops applying our corrections ("grate" stays "grate", "json" stays lowercase, "Claude code" not capitalized). **Instruction-following at 1.7B on our minimal-edit task is insufficient.** A proper Qwen3-1.7B-Instruct-2507 GGUF would likely fix this, but none is published yet.
+- **Verdict after all three trials:** stay on Qwen3-4B-Instruct-2507 for quality. The big remaining latency lever is **P2 (skip-polish gate)**, not the model swap.
 
 ### P3. Qwen3-4B → **Qwen3-1.7B** Q4_K_M + `llama-server` — ~500 ms polish, 2 h
 

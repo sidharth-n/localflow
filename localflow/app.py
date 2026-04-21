@@ -15,7 +15,7 @@ from localflow.core import config as cfg
 from localflow.core.capture import Capture
 from localflow.core.hotkey import HotkeyListener, Mode
 from localflow.core.inject import linux_x11
-from localflow.core.polish.dictionary import pre_polish
+from localflow.core.polish.dictionary import looks_clean, pre_polish
 from localflow.core.stt.moonshine_onnx import MoonshineSTT
 
 log = logging.getLogger("localflow")
@@ -62,24 +62,28 @@ def _run() -> int:
         t_pre = time.monotonic()
 
         final = pre
+        skipped = False
         if polish and pre:
-            try:
-                final = polish.polish(pre)
-            except Exception as e:
-                log.warning("polish failed, pasting pre-polished transcript: %s", e)
-                final = pre
+            if looks_clean(pre):
+                skipped = True
+            else:
+                try:
+                    final = polish.polish(pre)
+                except Exception as e:
+                    log.warning("polish failed, pasting pre-polished transcript: %s", e)
+                    final = pre
         t_pol = time.monotonic()
 
         linux_x11.paste(final, restore_after_ms=restore_ms)
         t_paste = time.monotonic()
 
         log.info(
-            "pipeline: %d samples | cap %.0f | stt %.0f | pre %.0f | llm %.0f | paste %.0f (ms)",
+            "pipeline: %d samples | cap %.0f | stt %.0f | pre %.0f | llm %s | paste %.0f (ms)",
             len(audio),
             (t_cap - t0) * 1000,
             (t_stt - t_cap) * 1000,
             (t_pre - t_stt) * 1000,
-            (t_pol - t_pre) * 1000,
+            "SKIP" if skipped else f"{(t_pol - t_pre) * 1000:.0f}",
             (t_paste - t_pol) * 1000,
         )
         if raw != final:
