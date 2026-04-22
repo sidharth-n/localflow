@@ -2,8 +2,8 @@
 
 > Source of truth for "where are we?". Updated at `/end` every session. Read first at `/start`.
 
-**Last updated:** 2026-04-21 (late)
-**Active milestone:** M2 + latency work — GPU polish, dictionary pre-polish, skip-gate, overlay code landed. Overlay live-test pending python3-tk install.
+**Last updated:** 2026-04-22
+**Active milestone:** Overlay UX polished and live — reactive waveform, true rounded pill, auto-kill of stale instances. Ready to move on to P4 token streaming or M3 Mac port.
 **Target machine this phase:** Linux laptop (RTX 3050 4 GB, X11)
 
 ---
@@ -22,7 +22,9 @@
 - [x] **P5 — GPU offload polish LLM** (`polish/llamacpp.py` + config). llama-cpp-python prebuilt CUDA wheel (cu124) + NVIDIA runtime pip wheels (nvidia-cuda-runtime-cu12, nvidia-cublas-cu12) auto-preloaded via ctypes.RTLD_GLOBAL. All 36 Qwen3-4B layers on the 3050's 4 GB VRAM (~2.5 GB used), flash-attn on. **Measured: 5000 ms CPU → 305 ms GPU average — ~10× speedup, quality intact.** Commit `f2ff165`.
 - [x] **Terminal paste fix** (`inject/linux_x11.py`). Ctrl+V is SIGINT/literal-next in terminals; now detects focused window's WM_CLASS (via `xdotool getwindowfocus` + `xprop`) and uses Ctrl+Shift+V in terminals, Ctrl+V elsewhere. 15 terminal-class keywords covered. Commit `6b24bd9`.
 - [x] **Hotkey default → Right-Alt** (`<alt_r>`). Right-Ctrl collided with too many things; Fn is not catchable on Linux (handled in firmware). Commit `bbb6c3b`.
-- [x] **Live recording overlay** (`localflow/core/overlay.py`, `app.py`). Tkinter-based dark pill bottom-center with red pulsing dot + "Recording" → amber "Processing…" → hide. Thread-safe via `after_idle`. Commit `1184dfa`. **Needs `sudo apt install python3-tk` to actually run — otherwise config `overlay.enabled: false` disables it.**
+- [x] **Live recording overlay** (`localflow/core/overlay.py`, `app.py`). Tkinter-based dark pill bottom-center with red pulsing dot + "Recording" → amber "Processing…" → hide. Thread-safe via `after_idle`. Commit `1184dfa`. Required `sudo apt install python3-tk` (installed 2026-04-22).
+- [x] **Overlay v2 — reactive waveform + true rounded pill** (`localflow/core/overlay.py`, `localflow/core/capture.py`, `localflow/app.py`). 11 vertical bars in a 140×40 pill. Recording: red bars respond to live mic amplitude (peak RMS read from `Capture.level`, updated every 30 ms audio chunk) with bell-shape weighting + jitter + idle breathe. Processing: amber bars run a travelling sine wave. Real rounded corners via X11 Shape extension (python-xlib) — window is actually clipped, not just painted. Graceful fallback to rectangular if Xlib unavailable.
+- [x] **Auto-kill previous localflow instance on startup** (`localflow/app.py::_kill_previous_instances`). Scans `/proc` for own-uid processes whose cmdline ends in `/bin/localflow` and SIGTERMs them (SIGKILL after 3 s). Fixes the recurring VRAM-pinned-by-stale-process failure where only 404 MiB free on the 3050 blocked the Qwen model from loading. Zero new deps — pure stdlib `/proc` scan.
 
 ## Rejected this session 🚫
 
@@ -34,20 +36,20 @@
 
 ## In progress 🔄
 
-_(overlay code landed; test next session after installing python3-tk)_
+_(nothing — overlay + auto-kill landed this session)_
 
 ## Next up (priority order) 📋
 
-1. **Overlay live test.** `sudo apt install -y python3-tk`, restart `localflow`, verify pill appears bottom-center on Right-Alt hold, flips to amber on release, hides after paste.
-2. **P4 — Token streaming.** Emit polished output token-by-token via xdotool type (word-boundary flush) instead of one clipboard paste. Perceived-latency win (~60 %) even though wall-clock is already good. Needs `llama-server` subprocess + SSE. ~3 h.
-3. **M3 — Mac port.** Mac M5 has 32 GB unified memory; MLX (`mlx-lm`) for polish and `moonshine_mlx` for STT. AXUIElement for paste, HotKey framework for global hotkey. Overlay code already uses tkinter so it should port directly. Big milestone — plan before touching code.
+1. **P4 — Token streaming.** Emit polished output token-by-token via xdotool type (word-boundary flush) instead of one clipboard paste. Perceived-latency win (~60 %) even though wall-clock is already good. Needs `llama-server` subprocess + SSE. ~3 h.
+2. **Idle-unload VRAM** (deferred this session; user said "do it later"). Config knob `polish.unload_after_idle_s` — if set, free the Qwen weights from VRAM after N seconds of no dictation; first dictation after idle pays +3 s reload. Useful on 4 GB VRAM laptop when also gaming or running other GPU workloads. Default off.
+3. **M3 — Mac port.** Mac M5 has 32 GB unified memory; MLX (`mlx-lm`) for polish and `moonshine_mlx` for STT. AXUIElement for paste, HotKey framework for global hotkey. Overlay code uses tkinter + (now) X11 Shape — need a macOS fallback for the shape call (the existing try/except already handles it, window just stays rectangular). Big milestone — plan before touching code.
 4. **Benchmarks** — write `scripts/bench_latency.py` that generates p50/p95/p99 over a test suite so we can quantify regressions.
 
 ## Milestones roadmap 🗺️
 
 - [x] **M0 — Linux skeleton**: hotkey → mic → Moonshine CPU → clipboard paste.
 - [x] **M2 — Polish LLM**: llama.cpp + Qwen3-4B Q4 **on GPU** (was planned CPU). Latency goal met.
-- [ ] **Overlay UX** (1 h remaining — just install + test).
+- [x] **Overlay UX** — reactive waveform, true rounded pill, compact 140×40.
 - [ ] **P4 — Token streaming** (perceived latency).
 - [ ] **M1 — GPU STT** (probably skip; polish is the budget dominator).
 - [ ] **M3 — Mac port.**
@@ -62,6 +64,14 @@ _(overlay code landed; test next session after installing python3-tk)_
 - `config/default.yaml` vs `~/.config/localflow/config.yaml` user override — loader currently only reads the default. Add user-override merge in M4.
 
 ## Session log 📝
+
+### 2026-04-22 — Overlay v2 + auto-kill
+- Installed `python3-tk` (apt) — unblocked the overlay that landed last session.
+- **Overlay redesigned for a demo**: replaced text-label + pulsing dot with 11 reactive bars in a pill. Recording state reads `Capture.level` (peak amplitude updated every audio chunk in `capture.py::_callback`) and drives bar heights with bell-shape weighting + per-bar sine jitter + fast-attack/slow-decay smoothing + gentle idle breathe. Processing state: same bars in amber running a travelling sine wave.
+- **True rounded corners**: used python-xlib (already installed) to apply an X11 Shape bounding mask — window is physically clipped to a pill shape, not just painted. Graceful try/except so non-X11 platforms fall back to rectangular.
+- **Compact sizing**: 260×50 → 140×40, 13 → 11 bars, tighter padding.
+- **Auto-kill stale instances** (`app.py::_kill_previous_instances`): recurring crash this session was a prior localflow (PID 16930) pinning 3.3 GB of the 3050's 4 GB VRAM, leaving only 404 MiB — model load failed. Added a `/proc` scan at startup that SIGTERMs (then SIGKILL after 3 s) any own-uid process whose cmdline ends in `/bin/localflow`. Pure stdlib, no new deps.
+- Discussed VRAM-on-idle with user: model stays loaded for the lifetime of the process (3 s reload is too slow per-keypress). Idle-unload-after-N-seconds deferred to next session per user request.
 
 ### 2026-04-21 — Project kickoff (morning)
 - Researched Wispr Flow; surveyed April-2026 STT/LLM landscape; chose Moonshine + Qwen3-4B/Gemma-4-E4B.
