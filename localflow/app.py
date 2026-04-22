@@ -5,7 +5,10 @@ Pipeline: hotkey → capture → Moonshine STT → dictionary pre-polish →
 """
 from __future__ import annotations
 
+import glob
 import logging
+import os
+import signal
 import sys
 import time
 
@@ -22,10 +25,56 @@ from localflow.core.stt.moonshine_onnx import MoonshineSTT
 log = logging.getLogger("localflow")
 
 
+def _kill_previous_instances() -> None:
+    """Kill any other localflow processes owned by this user.
+
+    Prevents stale instances from pinning GPU VRAM or stealing the hotkey
+    when the user restarts without cleanly exiting the prior run.
+    """
+    if not os.path.isdir("/proc"):  # non-Linux — skip
+        return
+    me = os.getpid()
+    my_uid = os.getuid()
+    victims: list[int] = []
+    for proc_dir in glob.glob("/proc/[0-9]*"):
+        try:
+            pid = int(os.path.basename(proc_dir))
+            if pid == me:
+                continue
+            if os.stat(proc_dir).st_uid != my_uid:
+                continue
+            with open(f"{proc_dir}/cmdline", "rb") as f:
+                argv = f.read().decode("utf-8", errors="ignore").split("\x00")
+            if any(a.endswith("/bin/localflow") for a in argv):
+                victims.append(pid)
+        except (FileNotFoundError, PermissionError, ProcessLookupError, ValueError):
+            continue
+
+    for pid in victims:
+        log.warning("killing previous localflow instance pid=%d", pid)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            continue
+        for _ in range(30):  # up to ~3 s for graceful exit
+            time.sleep(0.1)
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                break
+        else:
+            try:
+                os.kill(pid, signal.SIGKILL)
+                time.sleep(0.3)
+            except (ProcessLookupError, PermissionError):
+                pass
+
+
 def _run() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    _kill_previous_instances()
     c = cfg.load()
 
     capture = Capture(
@@ -50,7 +99,7 @@ def _run() -> int:
     overlay = None
     if c.get("overlay", {}).get("enabled", True):
         from localflow.core.overlay import Overlay
-        overlay = Overlay()
+        overlay = Overlay(level_fn=lambda: capture.level)
 
     restore_ms = c["inject"]["restore_clipboard_after_ms"]
 

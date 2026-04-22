@@ -20,6 +20,10 @@ class Capture:
     channels: int = 1
     chunk_ms: int = 30
 
+    # Live peak amplitude (0..1) from the most recent audio chunk. Read from
+    # the UI thread for the overlay waveform; writes are atomic (GIL).
+    level: float = field(init=False, default=0.0, repr=False)
+
     _stream: sd.InputStream | None = field(init=False, default=None, repr=False)
     _buffers: list[np.ndarray] = field(init=False, default_factory=list, repr=False)
 
@@ -31,11 +35,13 @@ class Capture:
         if status:
             log.warning("input stream status: %s", status)
         self._buffers.append(indata.copy())
+        self.level = float(np.abs(indata).max()) / 32768.0
 
     def start(self) -> None:
         if self._stream is not None:
             return
         self._buffers.clear()
+        self.level = 0.0
         self._stream = sd.InputStream(
             samplerate=self.sample_rate,
             channels=self.channels,
@@ -55,6 +61,7 @@ class Capture:
         self._stream.stop()
         self._stream.close()
         self._stream = None
+        self.level = 0.0
         if not self._buffers:
             return np.zeros(0, dtype=np.int16)
         audio = np.concatenate(self._buffers, axis=0)
