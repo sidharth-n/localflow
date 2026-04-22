@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fetch model weights referenced in config/default.yaml to ~/.localflow/models/.
 
-Moonshine STT weights are pulled automatically on first use by `moonshine_onnx`;
-this script only handles weights big enough to be worth pre-fetching.
+Moonshine STT weights are pulled automatically on first use by the ONNX runtime
+cache; this script only handles the polish LLM (too big to be worth fetching
+on every cold start).
 """
 from __future__ import annotations
 
@@ -15,12 +16,7 @@ TARGET = os.path.expanduser("~/.localflow/models")
 
 MODELS: list[dict[str, str]] = [
     {
-        "purpose": "polish LLM (primary, fast)",
-        "repo_id": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
-        "filename": "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-    },
-    {
-        "purpose": "polish LLM (fallback, higher quality)",
+        "purpose": "polish LLM (Qwen3-4B-Instruct-2507 Q4_K_M, ~2.4 GB)",
         "repo_id": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
         "filename": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     },
@@ -30,6 +26,11 @@ MODELS: list[dict[str, str]] = [
 def main() -> int:
     os.makedirs(TARGET, exist_ok=True)
     for m in MODELS:
+        target_path = os.path.join(TARGET, m["filename"])
+        if os.path.exists(target_path):
+            size_mb = os.path.getsize(target_path) / 1024 / 1024
+            print(f"==> already present: {m['filename']} ({size_mb:.0f} MB) — skipping")
+            continue
         print(f"==> {m['purpose']}: {m['repo_id']} / {m['filename']}")
         path = hf_hub_download(
             repo_id=m["repo_id"],

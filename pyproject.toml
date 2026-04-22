@@ -30,18 +30,24 @@ dependencies = [
     "pyperclip>=1.8",
     "PyYAML>=6.0",
     "click>=8.1",
+    "useful-moonshine-onnx>=0.1",
+    "huggingface_hub>=0.24",
 ]
 
 [project.optional-dependencies]
-# Linux + NVIDIA CUDA
+# Linux + NVIDIA CUDA. setup.sh replaces the PyPI llama-cpp-python with the
+# prebuilt CUDA wheel + the nvidia-cuda-runtime-cu12 / nvidia-cublas-cu12
+# pip shims that it dlopen()s at import.
 linux-gpu = [
     "onnxruntime-gpu>=1.18",
     "llama-cpp-python>=0.3",
+    "python-xlib>=0.33",
 ]
 # Linux CPU-only
 linux-cpu = [
     "onnxruntime>=1.18",
     "llama-cpp-python>=0.3",
+    "python-xlib>=0.33",
 ]
 # macOS (Apple Silicon)
 mac = [
